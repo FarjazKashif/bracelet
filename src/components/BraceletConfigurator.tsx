@@ -15,7 +15,7 @@ const palette = [
   "#4F69C6", // Sapphire blue
   "#50C878", // Emerald
   "#FF69B4", // Pink tourmaline
-  "#8B4513", // Amber brown
+  "#000000", // Amber brown
 ];
 
 export default function BraceletConfigurator({ initial = 28 }: { initial?: number }) {
@@ -157,7 +157,7 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
                         fill={bead.color}
                         stroke={selected ? "#0f172a" : "#9aa0a6"}
                         strokeWidth={selected ? 2 : 1}
-                        filter="url(#bevelEffect)"
+                        // filter="url(#bevelEffect)"
                         whileHover={{ scale: 1.12 }}
                         transition={{ type: "spring", stiffness: 220, damping: 18 }}
                         onClick={() => setSelectedIndex(i)}
@@ -168,7 +168,7 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
                         cy={p.y - beadRadius * 0.3}
                         r={beadRadius * 0.5}
                         fill="url(#pearlSheen)"
-                        opacity="0.6"
+                        opacity="0.3"
                         pointerEvents="none"
                       />
                     </g>
