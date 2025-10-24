@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import HeartPendant from "./HeartPandent";
+import HeartPendant from "./HeartPendant";
 
 type Shape = "round" | "square" | "diamond";
 interface Bead { id: number; color: string; shape: Shape; }
@@ -180,12 +180,21 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
                   const lockAngle = Math.PI / 2;
                   const lockX = cx + Math.cos(lockAngle) * radius;
                   const lockY = cy + Math.sin(lockAngle) * radius;
+
+                  if (pendantType === "heart") {
+                    return (
+                      <g transform={`translate(${lockX - 15} ${lockY - 5})`}>
+                        <HeartPendant color={pendantColor} />
+                      </g>
+                    );
+                  }
+
+                  // Lock pendant
                   const lockWidth = beadDiameter * 0.8;
                   const lockHeight = beadDiameter * 1.4;
                   
                   return (
                     <g>
-                      {/* Left clasp part */}
                       <rect
                         x={lockX - lockWidth - 2}
                         y={lockY - lockHeight/2}
@@ -195,7 +204,6 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
                         fill="#303030"
                         filter="url(#bevelEffect)"
                       />
-                      {/* Right clasp part */}
                       <rect
                         x={lockX + 2}
                         y={lockY - lockHeight/2}
@@ -204,14 +212,6 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
                         rx={4}
                         fill="#303030"
                         filter="url(#bevelEffect)"
-                      />
-                      {/* Clasp details */}
-                      <rect
-                        x={lockX - lockWidth/2 - 2}
-                        y={lockY - lockHeight/4}
-                        width={4}
-                        height={lockHeight/2}
-                        fill="#505050"
                       />
                     </g>
                   );
