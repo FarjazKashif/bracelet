@@ -1,6 +1,6 @@
 export default function HeartPendant({ color = "#FF69B4" }: { color?: string }) {
   return (
-    <svg width="30" height="30" viewBox="0 0 30 30">
+    <svg width="40" height="40" viewBox="0 0 30 30">
       <defs>
         <filter id="pendant-shadow" x="-20%" y="-20%" width="140%" height="140%">
           <feDropShadow

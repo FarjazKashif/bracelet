@@ -101,13 +101,13 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="text-lg font-semibold text-slate-900">Live Bracelet</h3>
-                <p className="text-sm text-slate-500">Minimal · Clean · Playful</p>
+                {/* <p className="text-sm text-slate-500">Minimal · Clean · Playful</p> */}
               </div>
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 <button onClick={removeBead} className="px-3 py-2 rounded-md bg-white border text-slate-700 hover:bg-slate-50">-</button>
                 <div className="px-3 py-2 rounded-md font-medium text-slate-900">{count}</div>
                 <button onClick={addBead} className="px-3 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">+</button>
-              </div>
+              </div> */}
             </div>
 
             <div className="flex items-center justify-center">
@@ -183,7 +183,7 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
 
                   if (pendantType === "heart") {
                     return (
-                      <g transform={`translate(${lockX - 15} ${lockY - 5})`}>
+                      <g transform={`translate(${lockX - 12} ${lockY - -8})`}>
                         <HeartPendant color={pendantColor} />
                       </g>
                     );
@@ -219,10 +219,10 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
               </svg>
             </div>
 
-            <div className="mt-3 flex items-center justify-between text-sm text-slate-500 px-2">
+            {/* <div className="mt-3 flex items-center justify-between text-sm text-slate-500 px-2">
               <div>Bead size: <strong className="text-slate-800">{Math.round(beadDiameter)}px</strong></div>
               <div>Ring radius: <strong className="text-slate-800">{Math.round(radius)}px</strong></div>
-            </div>
+            </div> */}
           </div>
         </motion.div>
 
