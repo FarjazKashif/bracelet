@@ -7,36 +7,52 @@ import HeartPendant from "./HeartPendant";
 type Shape = "round" | "square" | "diamond";
 interface Bead { id: number; color: string; shape: Shape; }
 
-const palette = [
-  "#FFD700", // Real gold
-  "#E6E8FA", // Pearl white
-  "#C0C0C0", // Sterling silver
-  "#B76E79", // Rose gold
-  "#4F69C6", // Sapphire blue
-  "#50C878", // Emerald
-  "#FF69B4", // Pink tourmaline
-  "#000000", // Amber brown
+const defaultPalette = [
+  "#FFD700", "#E6E8FA", "#C0C0C0", "#B76E79",
+  "#4F69C6", "#50C878", "#FF69B4", "#000000",
 ];
 
 export default function BraceletConfigurator({ initial = 28 }: { initial?: number }) {
   // ---------- stable state & ids ----------
   const [count, setCount] = useState<number>(initial);
-  const idRef = useRef<number>(initial); // deterministic id generator (1..)
-  const [beads, setBeads] = useState<Bead[]>(() =>
+  const idRef = useRef<number>(initial);
+  const [beads, setBeads] = useState<Bead[]>(
     Array.from({ length: initial }).map((_, i) => ({ id: i + 1, color: "#ffffff", shape: "round" }))
   );
   const [selectedIndex, setSelectedIndex] = useState<number | null>(0);
 
-  // pendant state: "lock" | "heart"
-  const [pendantType, setPendantType] = useState<"lock" | "heart">("lock");
-  // color for heart half (user chooses from same palette)
+  // pendant and knot
+  const [pendantType, setPendantType] = useState<"knot" | "heart">("knot");
   const [pendantColor, setPendantColor] = useState<string>("#FFD700");
+  const [pendantSize, setPendantSize] = useState<number>(28);
+  const [pendantPlacement, setPendantPlacement] = useState<"bottom" | "left" | "right">("bottom");
+  const [pendantOffset, setPendantOffset] = useState<number>(2); // extra offset
 
-  // ---------- avoid SSR/CSR mismatch ----------
+  // thread options
+  const [threadColor, setThreadColor] = useState<string>("#000000");
+  const [threadThickness, setThreadThickness] = useState<number>(2);
+  const [threadType, setThreadType] = useState<"solid" | "dashed" | "braided">("solid");
+
+  // bead options
+  const [palette, setPalette] = useState<string[]>(defaultPalette);
+  const [beadScale, setBeadScale] = useState<number>(1); // multiplier for bead size
+  const [symmetryEnabled, setSymmetryEnabled] = useState<boolean>(false);
+
+  // undo/redo history (simple)
+  const historyRef = useRef<Bead[][]>([]);
+  const redoRef = useRef<Bead[][]>([]);
+  const pushHistory = (next: Bead[]) => {
+    historyRef.current.push(JSON.parse(JSON.stringify(next)));
+    // Trim history so it doesn't grow too large (optional)
+    if (historyRef.current.length > 50) historyRef.current.shift();
+    redoRef.current = []; // clear redo on new action
+  };
+
+  // mounted flag
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
 
-  // keep array in sync with count (preserve existing beads)
+  // sync bead array with count
   useEffect(() => {
     setBeads(prev => {
       if (prev.length === count) return prev;
@@ -46,12 +62,16 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
           idRef.current += 1;
           next.push({ id: idRef.current, color: "#ffffff", shape: "round" });
         }
+        pushHistory(next);
         return next;
       } else {
-        return prev.slice(0, count);
+        const next = prev.slice(0, count);
+        pushHistory(next);
+        return next;
       }
     });
     setSelectedIndex(s => (s !== null && s >= count ? count - 1 : s));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [count]);
 
   // ---------- geometry ----------
@@ -60,14 +80,17 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
   const cy = size / 2;
   const radius = useMemo(() => Math.max(110, (size / 2) - 110), [size]);
 
-  const beadDiameter = useMemo(() => {
+  // base bead diameter computed from circle; we apply beadScale multiplier
+  const beadDiameterBase = useMemo(() => {
     const circum = 2 * Math.PI * radius;
     const raw = (circum / Math.max(3, count)) * 0.78;
     return Math.max(10, Math.min(56, raw));
   }, [count, radius]);
+
+  const beadDiameter = beadDiameterBase * beadScale;
   const beadRadius = beadDiameter / 2;
 
-  // positions are deterministic and rounded to avoid tiny float differences
+  // bead positions around circle
   const positions = useMemo(() => {
     const arr: { x: number; y: number }[] = [];
     const startAngle = -Math.PI / 2;
@@ -80,173 +103,307 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
     return arr;
   }, [count, radius, cx, cy]);
 
-  // ---------- small helpers ----------
-  function updateBead(index: number, partial: Partial<Bead>) {
-    setBeads(prev => prev.map((b, i) => (i === index ? { ...b, ...partial } : b)));
+  // ---------- helper functions ----------
+  function setBeadsWithHistory(next: Bead[]) {
+    pushHistory(next);
+    setBeads(next);
   }
+
+  function updateBead(index: number, partial: Partial<Bead>) {
+    setBeads(prev => {
+      const next = prev.map((b, i) => (i === index ? { ...b, ...partial } : b));
+      // symmetry: also update opposite bead
+      if (symmetryEnabled) {
+        const opp = (index + Math.floor(count / 2)) % count;
+        next[opp] = { ...next[opp], ...partial };
+      }
+      pushHistory(next);
+      return next;
+    });
+  }
+
   function addBead() { setCount(c => Math.min(80, c + 1)); }
   function removeBead() { setCount(c => Math.max(3, c - 1)); }
+
+  function applySelectedToAll() {
+    if (selectedIndex === null) return;
+    const sel = beads[selectedIndex];
+    if (!sel) return;
+    const next = beads.map(b => ({ ...b, color: sel.color, shape: sel.shape }));
+    setBeadsWithHistory(next);
+  }
+
+  function undo() {
+    const h = historyRef.current;
+    if (h.length <= 1) return;
+    // move current to redo
+    const current = h.pop()!;
+    redoRef.current.push(current);
+    const prev = h[h.length - 1];
+    setBeads(JSON.parse(JSON.stringify(prev)));
+  }
+
+  function redo() {
+    const r = redoRef.current;
+    if (!r.length) return;
+    const next = r.pop()!;
+    historyRef.current.push(JSON.parse(JSON.stringify(next)));
+    setBeads(JSON.parse(JSON.stringify(next)));
+  }
+
+  // save svg
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  function downloadSVG() {
+    if (!svgRef.current) return;
+    const svgNode = svgRef.current.cloneNode(true) as SVGSVGElement;
+    // inline styles: set thread color and thickness by manipulating cloned nodes
+    // serialize
+    const serializer = new XMLSerializer();
+    const str = serializer.serializeToString(svgNode);
+    const blob = new Blob([str], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "bracelet.svg";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // initialize history with initial beads
+  useEffect(() => {
+    historyRef.current = [JSON.parse(JSON.stringify(beads))];
+    redoRef.current = [];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ---------- render ----------
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-pink-50 px-6 py-12">
       <div className="text-center mb-8 w-full max-w-2xl">
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Design Your Bracelet</h1>
-        <p className="text-slate-500">Customize your perfect bracelet with our interactive designer</p>
+        <p className="text-slate-500">Customize your perfect bracelet with an improved designer</p>
       </div>
 
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        <motion.div className="relative">
+        {/* Preview */}
+        <motion.div className="relative" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
           <div className="relative p-8 rounded-3xl bg-white/80 backdrop-blur-xl border border-white/80 shadow-lg">
             <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="text-lg font-semibold text-slate-900">Live Bracelet</h3>
-                {/* <p className="text-sm text-slate-500">Minimal · Clean · Playful</p> */}
+              <h3 className="text-lg font-semibold text-slate-900">Live Bracelet</h3>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { undo(); }} className="px-3 py-1 rounded bg-white border">Undo</button>
+                <button onClick={() => { redo(); }} className="px-3 py-1 rounded bg-white border">Redo</button>
+                <button onClick={downloadSVG} className="px-3 py-1 rounded bg-indigo-600 text-white">Download SVG</button>
               </div>
-              {/* <div className="flex items-center gap-2">
-                <button onClick={removeBead} className="px-3 py-2 rounded-md bg-white border text-slate-700 hover:bg-slate-50">-</button>
-                <div className="px-3 py-2 rounded-md font-medium text-slate-900">{count}</div>
-                <button onClick={addBead} className="px-3 py-2 rounded-md bg-slate-900 text-white hover:bg-slate-800">+</button>
-              </div> */}
             </div>
 
             <div className="flex items-center justify-center">
-              <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
+              <svg
+                ref={svgRef}
+                viewBox={`0 0 ${size} ${size}`}
+                width={size}
+                height={size}
+                role="img"
+                aria-label="Bracelet preview"
+              >
                 <defs>
-                  {/* Enhanced metallic effects */}
                   <radialGradient id="pearlSheen" cx="0.3" cy="0.3" r="0.7">
                     <stop offset="0%" stopColor="rgba(255,255,255,0.8)" />
                     <stop offset="80%" stopColor="rgba(255,255,255,0)" />
                   </radialGradient>
-                  <linearGradient id="chainGradient" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#D4D4D8" />
-                    <stop offset="50%" stopColor="#E4E4E7" />
-                    <stop offset="100%" stopColor="#D4D4D8" />
-                  </linearGradient>
-                  <filter id="bevelEffect">
-                    <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur" />
-                    <feSpecularLighting in="blur" surfaceScale="5" specularConstant=".75" specularExponent="20" result="spec">
-                      <fePointLight x="-5000" y="-10000" z="20000" />
-                    </feSpecularLighting>
-                    <feComposite in="SourceGraphic" in2="spec" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" />
-                  </filter>
                 </defs>
 
-                {/* Chain/thread effect */}
-                <path
-                  d={`M ${cx},${cy} m -${radius},0 a ${radius},${radius} 0 1,0 ${radius*2},0 a ${radius},${radius} 0 1,0 -${radius*2},0`}
-                  fill="none"
-                  stroke="url(#chainGradient)"
-                  strokeWidth="3"
-                  strokeDasharray="4 2"
-                  opacity="0.8"
-                />
+                {/* Thread / string */}
+                {(() => {
+                  let dash = "";
+                  if (threadType === "dashed") dash = "8 6";
+                  if (threadType === "braided") dash = "2 4 2 6"; // approximated look
+                  return (
+                    <path
+                      d={`M ${cx},${cy} m -${radius},0 a ${radius},${radius} 0 1,0 ${radius * 2},0 a ${radius},${radius} 0 1,0 -${radius * 2},0`}
+                      fill="none"
+                      stroke={threadColor}
+                      strokeWidth={threadThickness}
+                      strokeDasharray={dash || undefined}
+                      strokeLinecap={threadType === "braided" ? "round" : "butt"}
+                      opacity={0.9}
+                    />
+                  );
+                })()}
 
-                {/* Beads with enhanced effects */}
+                {/* Beads */}
                 {positions.map((p, i) => {
                   const bead = beads[i];
                   if (!bead) return null;
                   const selected = selectedIndex === i;
-                  
-                  return (
-                    <g key={bead.id}>
-                      <motion.circle
-                        cx={p.x}
-                        cy={p.y}
-                        r={beadRadius}
-                        fill={bead.color}
-                        stroke={selected ? "#0f172a" : "#9aa0a6"}
+                  const strokeColor = selected ? "#0f172a" : "#9aa0a6";
+
+                  // pick fill: beads are either white or chosen color
+                  const fillColor = bead.color || "#ffffff";
+
+                  if (bead.shape === "round") {
+                    return (
+                      <g key={bead.id}>
+                        <motion.circle
+                          cx={p.x}
+                          cy={p.y}
+                          r={beadRadius}
+                          fill={fillColor}
+                          stroke={strokeColor}
+                          strokeWidth={selected ? 2 : 1}
+                          whileHover={{ scale: 1.06 }}
+                          transition={{ type: "spring", stiffness: 220, damping: 18 }}
+                          onClick={() => setSelectedIndex(i)}
+                          style={{ cursor: "pointer" }}
+                        />
+                        <circle
+                          cx={p.x - beadRadius * 0.28}
+                          cy={p.y - beadRadius * 0.28}
+                          r={beadRadius * 0.45}
+                          fill="url(#pearlSheen)"
+                          opacity={0.32}
+                          pointerEvents="none"
+                        />
+                      </g>
+                    );
+                  }
+
+                  if (bead.shape === "square") {
+                    const x = p.x - beadRadius;
+                    const y = p.y - beadRadius;
+                    return (
+                      <motion.rect
+                        key={bead.id}
+                        x={x}
+                        y={y}
+                        width={beadDiameter}
+                        height={beadDiameter}
+                        rx={Math.max(3, beadRadius * 0.2)}
+                        fill={fillColor}
+                        stroke={strokeColor}
                         strokeWidth={selected ? 2 : 1}
-                        // filter="url(#bevelEffect)"
-                        whileHover={{ scale: 1.12 }}
-                        transition={{ type: "spring", stiffness: 220, damping: 18 }}
+                        whileHover={{ scale: 1.04 }}
                         onClick={() => setSelectedIndex(i)}
+                        style={{ cursor: "pointer" }}
                       />
-                      {/* Metallic highlight */}
-                      <circle
-                        cx={p.x - beadRadius * 0.3}
-                        cy={p.y - beadRadius * 0.3}
-                        r={beadRadius * 0.5}
-                        fill="url(#pearlSheen)"
-                        opacity="0.3"
-                        pointerEvents="none"
-                      />
-                    </g>
+                    );
+                  }
+
+                  // diamond
+                  const pts = [
+                    `${p.x},${p.y - beadRadius}`,
+                    `${p.x + beadRadius},${p.y}`,
+                    `${p.x},${p.y + beadRadius}`,
+                    `${p.x - beadRadius},${p.y}`,
+                  ].join(" ");
+                  return (
+                    <motion.polygon
+                      key={bead.id}
+                      points={pts}
+                      fill={fillColor}
+                      stroke={strokeColor}
+                      strokeWidth={selected ? 2 : 1}
+                      whileHover={{ scale: 1.04 }}
+                      onClick={() => setSelectedIndex(i)}
+                      style={{ cursor: "pointer" }}
+                    />
                   );
                 })}
 
-                {/* Improved clasp design */}
+                {/* Top knot (opposite of pendant). We will place knot at top center ( -Y ) */}
                 {(() => {
-                  const lockAngle = Math.PI / 2;
-                  const lockX = cx + Math.cos(lockAngle) * radius;
-                  const lockY = cy + Math.sin(lockAngle) * radius;
+                  // knot position depends on pendantPlacement; pendant bottom means knot top
+                  const knotAngle = pendantPlacement === "bottom" ? -Math.PI / 2 :
+                                    pendantPlacement === "left" ? Math.PI : 0; // left or right
+                  const knotX = cx + Math.cos(knotAngle) * radius;
+                  const knotY = cy + Math.sin(knotAngle) * radius;
+                  // small knot size relative to bead
+                  const kScale = Math.max(8, beadDiameter * 0.4);
+                  return (
+                    <g transform={`translate(${knotX - kScale / 2}, ${knotY - kScale / 2})`} fill="none" stroke="#000" strokeWidth={2} strokeLinecap="round">
+                      {/* a compact SVG knot path (simple but readable) */}
+                      <path d={`M ${kScale*0.2},${kScale*0.6} 
+                                 C ${kScale*0.05},${kScale*0.15} ${kScale*0.95},${kScale*0.15} ${kScale*0.8},${kScale*0.6}`} />
+                      <path d={`M ${kScale*0.35},${kScale*0.6} L ${kScale*0.65},${kScale*0.9}`} />
+                      <circle cx={kScale*0.5} cy={kScale*0.45} r={kScale*0.12} fill="#000" stroke="none" />
+                    </g>
+                  );
+                })()}
 
+                {/* Pendant: position depends on pendantPlacement */}
+                {(() => {
+                  // compute base position for pendant placement
+                  let angle = Math.PI / 2; // bottom
+                  if (pendantPlacement === "bottom") angle = Math.PI / 2;
+                  if (pendantPlacement === "left") angle = Math.PI;
+                  if (pendantPlacement === "right") angle = 0;
+                  const px = cx + Math.cos(angle) * (radius + beadRadius * (pendantOffset / 10 + 0.6));
+                  const py = cy + Math.sin(angle) * (radius + beadRadius * (pendantOffset / 10 + 0.6));
+
+                  // Use your HeartPendant component exactly as before (color prop only)
                   if (pendantType === "heart") {
+                    // place and scale
                     return (
-                      <g transform={`translate(${lockX - 12} ${lockY - -8})`}>
+                      <g transform={`translate(${px - pendantSize / 2} ${py - pendantSize / 2})`}>
+                        {/* user HeartPendant expects color prop; keep same usage as your code */}
                         <HeartPendant color={pendantColor} />
                       </g>
                     );
                   }
 
-                  // Lock pendant
-                  const lockWidth = beadDiameter * 0.8;
-                  const lockHeight = beadDiameter * 1.4;
-                  
+                  // Thread knot pendant (if pendantType === "knot") — small drop knot below ring
                   return (
-                    <g>
-                      <rect
-                        x={lockX - lockWidth - 2}
-                        y={lockY - lockHeight/2}
-                        width={lockWidth}
-                        height={lockHeight}
-                        rx={4}
-                        fill="#303030"
-                        filter="url(#bevelEffect)"
-                      />
-                      <rect
-                        x={lockX + 2}
-                        y={lockY - lockHeight/2}
-                        width={lockWidth}
-                        height={lockHeight}
-                        rx={4}
-                        fill="#303030"
-                        filter="url(#bevelEffect)"
-                      />
+                    <g transform={`translate(${px - 8} ${py - 5})`} stroke="#000" strokeWidth={2} fill="none" strokeLinecap="round">
+                      <path d="M0,5 C4,-2 12,-2 16,5" />
+                      <path d="M8,5 L8,14" />
                     </g>
                   );
                 })()}
               </svg>
             </div>
-
-            {/* <div className="mt-3 flex items-center justify-between text-sm text-slate-500 px-2">
-              <div>Bead size: <strong className="text-slate-800">{Math.round(beadDiameter)}px</strong></div>
-              <div>Ring radius: <strong className="text-slate-800">{Math.round(radius)}px</strong></div>
-            </div> */}
           </div>
         </motion.div>
 
         {/* Controls */}
-        <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.2 }} className="space-y-6 bg-white/80 backdrop-blur-xl border border-white/80 rounded-3xl p-6 shadow-lg">
-          {/* Color picker */}
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.6, delay: 0.2 }}
+          className="space-y-6 bg-white/80 backdrop-blur-xl border border-white/80 rounded-3xl p-6 shadow-lg"
+        >
+          {/* Colors (per-bead or pendant) */}
           <div>
             <label className="text-sm font-medium text-slate-700 block mb-2">Colors</label>
-            <div className="flex gap-2">
+            <div className="flex gap-2 items-center">
               {palette.map(c => (
                 <motion.button
                   key={c}
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
+                  whileHover={{ scale: 1.06 }}
                   onClick={() => selectedIndex !== null && updateBead(selectedIndex, { color: c })}
                   style={{ background: c }}
-                  className={`h-8 w-8 rounded-full border shadow-sm ${selectedIndex !== null && beads[selectedIndex]?.color === c ? "ring-2 ring-offset-2 ring-indigo-400" : ""}`}
+                  className={`h-8 w-8 rounded-full border ${selectedIndex !== null && beads[selectedIndex]?.color === c ? "ring-2 ring-offset-2 ring-indigo-400" : ""}`}
                 />
               ))}
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => selectedIndex !== null && updateBead(selectedIndex, { color: "#ffffff" })} className={`h-8 w-8 rounded-full border shadow-sm bg-white ${selectedIndex !== null && beads[selectedIndex]?.color === "#ffffff" ? "ring-2 ring-offset-2 ring-indigo-400" : ""}`}> </motion.button>
+              <motion.button
+                whileHover={{ scale: 1.06 }}
+                className="h-8 w-8 rounded-full border bg-white"
+                onClick={() => selectedIndex !== null && updateBead(selectedIndex, { color: "#ffffff" })}
+              />
+              <input
+                aria-label="Custom color"
+                type="color"
+                className="h-8 w-8 p-0 border rounded-full"
+                onChange={(e) => selectedIndex !== null && updateBead(selectedIndex, { color: e.target.value })}
+                style={{ padding: 0 }}
+                value={selectedIndex !== null ? beads[selectedIndex]?.color ?? "#ffffff" : "#ffffff"}
+              />
+              <button onClick={applySelectedToAll} className="ml-3 px-3 py-1 rounded bg-white border">Apply to all</button>
             </div>
           </div>
 
-          {/* Shape picker */}
+          {/* Bead shape */}
           <div>
             <label className="text-sm font-medium text-slate-700 block mb-2">Shapes</label>
             <div className="flex gap-2">
@@ -254,7 +411,6 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
                 <motion.button
                   key={s}
                   whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
                   onClick={() => selectedIndex !== null && updateBead(selectedIndex, { shape: s })}
                   className={`px-4 py-2 rounded-full text-sm ${selectedIndex !== null && beads[selectedIndex]?.shape === s ? "bg-slate-900 text-white" : "bg-white border hover:bg-slate-50"}`}
                 >
@@ -264,37 +420,88 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
             </div>
           </div>
 
-          {/* Pendant chooser */}
+          {/* Bead size (global) */}
+          <div>
+            <label className="text-sm font-medium text-slate-700 block mb-2">Bead size</label>
+            <input
+              type="range"
+              min={0.7}
+              max={1.4}
+              step={0.02}
+              value={beadScale}
+              onChange={(e) => setBeadScale(Number(e.target.value))}
+              className="w-full"
+            />
+            <div className="text-xs text-slate-500 mt-1">Scale: {Math.round(beadScale * 100)}%</div>
+          </div>
+
+          {/* Thread options */}
+          <div>
+            <label className="text-sm font-medium text-slate-700 block mb-2">Thread</label>
+            <div className="flex gap-2 items-center mb-2">
+              <input type="color" value={threadColor} onChange={(e) => setThreadColor(e.target.value)} className="h-8 w-8 p-0 rounded-full border" />
+              <div className="flex items-center gap-2">
+                <label className="text-xs">Thickness</label>
+                <input type="range" min={1} max={6} value={threadThickness} onChange={(e) => setThreadThickness(Number(e.target.value))} className="mx-2" />
+                <div className="text-xs text-slate-500">{threadThickness}px</div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setThreadType("solid")} className={`px-3 py-1 rounded ${threadType === "solid" ? "bg-slate-900 text-white" : "bg-white border"}`}>Solid</button>
+              <button onClick={() => setThreadType("dashed")} className={`px-3 py-1 rounded ${threadType === "dashed" ? "bg-slate-900 text-white" : "bg-white border"}`}>Dashed</button>
+              <button onClick={() => setThreadType("braided")} className={`px-3 py-1 rounded ${threadType === "braided" ? "bg-slate-900 text-white" : "bg-white border"}`}>Braided</button>
+            </div>
+          </div>
+
+          {/* Pendant controls */}
           <div>
             <label className="text-sm font-medium text-slate-700 block mb-2">Pendant</label>
-            <div className="flex gap-2 items-center">
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setPendantType("lock")} className={`px-4 py-2 rounded-full text-sm ${pendantType === "lock" ? "bg-slate-900 text-white" : "bg-white border hover:bg-slate-50"}`}>Lock</motion.button>
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setPendantType("heart")} className={`px-4 py-2 rounded-full text-sm ${pendantType === "heart" ? "bg-slate-900 text-white" : "bg-white border hover:bg-slate-50"}`}>Half Heart</motion.button>
+            <div className="flex gap-2 items-center mb-2">
+              <button onClick={() => setPendantType("knot")} className={`px-3 py-1 rounded ${pendantType === "knot" ? "bg-slate-900 text-white" : "bg-white border"}`}>Thread Knot</button>
+              <button onClick={() => setPendantType("heart")} className={`px-3 py-1 rounded ${pendantType === "heart" ? "bg-slate-900 text-white" : "bg-white border"}`}>Half Heart</button>
             </div>
 
-            {/* if heart selected show color picker for pendant half */}
             {pendantType === "heart" && (
-              <div className="mt-3 flex items-center gap-2">
+              <div className="flex items-center gap-2 mb-2">
                 {palette.map(c => (
                   <button key={c} onClick={() => setPendantColor(c)} className={`h-7 w-7 rounded-full border ${pendantColor === c ? "ring-2 ring-indigo-400" : ""}`} style={{ background: c }} />
                 ))}
-                <div className="text-xs text-slate-500 ml-2">Choose color for left half</div>
               </div>
             )}
-          </div>
 
-          {/* Bead count */}
-          <div className="space-y-4">
-            <label className="text-sm font-medium text-slate-700">Bead count</label>
-            <input type="range" min={3} max={80} value={count} onChange={(e) => setCount(Number(e.target.value))} className="w-full h-2 bg-gradient-to-r from-indigo-200 to-purple-200 rounded-lg appearance-none cursor-pointer accent-indigo-600" />
             <div className="flex items-center gap-2">
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setCount(c => Math.max(3, c - 1))} className="px-3 py-1 rounded-md bg-white border shadow-sm hover:bg-slate-50">-</motion.button>
-              <div className="px-3 py-1 rounded-md bg-slate-50 font-medium">{count}</div>
-              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setCount(c => Math.min(80, c + 1))} className="px-3 py-1 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/20">+</motion.button>
+              <label className="text-xs">Size</label>
+              <input type="range" min={16} max={56} value={pendantSize} onChange={(e) => setPendantSize(Number(e.target.value))} className="mx-2" />
+              <label className="text-xs">Placement</label>
+              <select value={pendantPlacement} onChange={(e) => setPendantPlacement(e.target.value as any)} className="ml-2 border rounded px-2 py-1">
+                <option value="bottom">Bottom</option>
+                <option value="left">Left</option>
+                <option value="right">Right</option>
+              </select>
+              <label className="text-xs ml-2">Offset</label>
+              <input type="range" min={0} max={8} value={pendantOffset} onChange={(e) => setPendantOffset(Number(e.target.value))} className="mx-2" />
             </div>
           </div>
 
-          <p className="text-sm text-slate-500 pt-4 border-t">Click any bead to select and customize it</p>
+          {/* Symmetry toggle and duplicate */}
+          <div className="flex items-center gap-3">
+            <label className="text-sm">Symmetry</label>
+            <input type="checkbox" checked={symmetryEnabled} onChange={(e) => setSymmetryEnabled(e.target.checked)} />
+            <button onClick={applySelectedToAll} className="ml-4 px-3 py-1 rounded bg-white border">Apply selected to all</button>
+          </div>
+
+          {/* Bead count */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">Bead count</label>
+            <input type="range" min={3} max={80} value={count} onChange={(e) => setCount(Number(e.target.value))} className="w-full" />
+            <div className="flex items-center gap-2">
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setCount(c => Math.max(3, c - 1))} className="px-3 py-1 rounded-md bg-white border shadow-sm hover:bg-slate-50">-</motion.button>
+              <div className="px-3 py-1 rounded-md bg-slate-50 font-medium">{count}</div>
+              <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setCount(c => Math.min(80, c + 1))} className="px-3 py-1 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg">+</motion.button>
+            </div>
+          </div>
+
+          <p className="text-sm text-slate-500 pt-4 border-t">Click any bead to select and customize it. Use Undo/Redo and Download SVG to export your design.</p>
         </motion.div>
       </div>
     </div>
