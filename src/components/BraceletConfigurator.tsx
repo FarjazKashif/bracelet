@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import HeartPendant from "./HeartPendant";
 import { Button } from "./ui/button";
+import { RadioGroup } from "./ui/radio-group";
 
 type Shape = "round" | "square" | "diamond";
 interface Bead { id: number; color: string; shape: Shape; }
@@ -40,12 +41,14 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
   // thread options
   const [threadColor, setThreadColor] = useState<string>("#000000");
   const [threadThickness, setThreadThickness] = useState<number>(0.5);
-  const [threadType, setThreadType] = useState<"solid" | "dashed" | "braided">("solid");
+  const [threadType, setThreadType] = useState<"rubber" | "thread">("rubber");
 
   // bead options
   const [palette, setPalette] = useState<string[]>(defaultPalette);
   const [beadScale, setBeadScale] = useState<number>(1); // multiplier for bead size
   const [symmetryEnabled, setSymmetryEnabled] = useState<boolean>(false);
+
+  const [options, setOPtions] = useState<string>();
 
   // undo/redo history (simple)
   const historyRef = useRef<Bead[][]>([]);
@@ -225,7 +228,7 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
                 </defs>
 
                 {/* Thread / string */}
-                {(() => {
+                {/* {(() => {
                   let dash = "";
                   if (threadType === "dashed") dash = "8 6";
                   if (threadType === "braided") dash = "2 4 2 6"; // approximated look
@@ -240,7 +243,7 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
                       opacity={0.9}
                     />
                   );
-                })()}
+                })()} */}
 
                 {/* Beads */}
                 {positions.map((p, i) => {
@@ -322,34 +325,22 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
                 })}
 
                 {/* Top knot (opposite of pendant). We will place knot at top center ( -Y ) */}
-                {(() => {
-                  // knot position depends on pendantPlacement; pendant bottom means knot top
-                  const knotAngle = pendantPlacement === "bottom" ? -Math.PI / 2 :
-                                    pendantPlacement === "left" ? Math.PI : 0; // left or right
-                  const knotX = cx + Math.cos(knotAngle) * radius;
-                  const knotY = cy + Math.sin(knotAngle) * radius;
-                  // small knot size relative to bead
-                  const kScale = Math.max(8, beadDiameter * 0.4);
-                  return (
-                    <g transform={`translate(${knotX - kScale / 2}, ${knotY - kScale / 2})`} fill="none" stroke="#000" strokeWidth={2} strokeLinecap="round">
-                      {/* a compact SVG knot path (simple but readable) */}
-                      <path d={`M ${kScale*0.2},${kScale*0.6} 
-                                 C ${kScale*0.05},${kScale*0.15} ${kScale*0.95},${kScale*0.15} ${kScale*0.8},${kScale*0.6}`} />
-                      <path d={`M ${kScale*0.35},${kScale*0.6} L ${kScale*0.65},${kScale*0.9}`} />
-                      <circle cx={kScale*0.5} cy={kScale*0.45} r={kScale*0.12} fill="#000" stroke="none" />
-                    </g>
-                  );
-                })()}
 
                 {/* Pendant: position depends on pendantPlacement */}
                 {(() => {
+                  // knot position depends on pendantPlacement; pendant bottom means knot top
+                  const knotX = cx + Math.cos(-Math.PI / 2) * radius;
+                  const knotY = cy + Math.sin(-Math.PI / 2) * radius;
+                  // small knot size relative to bead
+                  const kScale = 50;
+
                   // compute base position for pendant placement
                   let angle = Math.PI / 2; // bottom
-                  if (pendantPlacement === "bottom") angle = Math.PI / 2;
+                  if (pendantPlacement === "bottom") angle = -Math.PI / 2;
                   if (pendantPlacement === "left") angle = Math.PI;
                   if (pendantPlacement === "right") angle = 0;
-                  const px = cx + Math.cos(angle) * (radius + beadRadius * (pendantOffset / 10 + 0.6));
-                  const py = cy + Math.sin(angle) * (radius + beadRadius * (pendantOffset / 10 + 0.6));
+                  const px = cx; // center horizontally
+                  const py = cy + radius + beadRadius * 1.3; // push it to the bottom below the beads
 
                   // Use your HeartPendant component exactly as before (color prop only)
                   if (pendantType === "heart") {
@@ -364,10 +355,28 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
 
                   // Thread knot pendant (if pendantType === "knot") — small drop knot below ring
                   return (
-                    <g transform={`translate(${px - 8} ${py - 5})`} stroke="#000" strokeWidth={2} fill="none" strokeLinecap="round">
-                      <path d="M0,5 C4,-2 12,-2 16,5" />
-                      <path d="M8,5 L8,14" />
+                    <g
+                      transform={`translate(${cx}, ${cy - radius - 10})`}
+                      fill="none"
+                      stroke="#000"
+                      strokeWidth={3}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      {/* left rope curve */}
+                      <path d="M -20 10 Q -10 -5 0 0 Q 10 5 20 -5" />
+
+                      {/* overlap section (tied part) */}
+                      <path d="M -5 -2 Q 0 -10 5 -2" />
+
+                      {/* rope ends */}
+                      <path d="M -18 8 Q -25 0 -18 -8" />
+                      <path d="M 18 -8 Q 25 0 18 8" />
+
+                      {/* knot center */}
+                      <circle cx="0" cy="-2" r="3" fill="#000" stroke="none" />
                     </g>
+
                   );
                 })()}
               </svg>
@@ -431,9 +440,63 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
 
           {/* Pendant controls */}
           <div>
-            <label className="text-sm font-medium text-slate-700 block mb-2">Pendant</label>
+            <RadioGroup
+              key={name}
+              value={options[name]}
+              onChange={(value) => {
+                setOptions((prev) => ({
+                  ...prev,
+                  [name]: value
+                }))
+              }}
+            >
+              <Label className="text-zinc-700">{name.slice(0, 1).toUpperCase() + name.slice(1)}</Label>
+              <div className='mt-3 space-y-4'>
+                {selectableOptions.map((option) => (
+                  <Radio
+                    value={option}
+                    key={option.value}
+                    className={({ focus, checked }) =>
+                      cn(
+                        'relative block cursor-pointer rounded-lg bg-white px-6 py-4 shadow-sm border-2 border-zinc-200 focus:outline-none ring-0 focus:ring-0 outline-none sm:flex sm:justify-between',
+                        {
+                          'border-primary': focus || checked,
+                        }
+                      )
+                    }
+                  >
+                    <span className='flex items-center'>
+                      <span className='flex flex-col text-sm'>
+                        <Radio value={option.label} className='font-medium text-gray-900'
+                          as='span'>
+                          {option.label}
+                        </Radio>
+
+                        {option.description ? (
+                          <Radio value={option.description} as='span'
+                            className='text-gray-500'>
+                            <span className='block sm:inline'>
+                              {option.description}
+                            </span>
+                          </Radio>
+                        ) : null}
+                      </span>
+                    </span>
+
+                    <Radio as='span' value={option.price}
+                      className='mt-2 flex text-sm sm:ml-4 sm:mt-0 sm:flex-col sm:text-right'>
+                      <span className='font-medium text-gray-900'>
+                        {formatPrice(option.price / 100)}
+                      </span>
+                    </Radio>
+                  </Radio>
+                ))}
+              </div>
+
+            </RadioGroup>
+            <label className="text-sm font-medium text-slate-700 block mb-2">Pendant Type:</label>
             <div className="flex gap-2 items-center mb-2">
-              <button onClick={() => setPendantType("knot")} className={`px-3 py-1 rounded ${pendantType === "knot" ? "bg-slate-900 text-white" : "bg-white border"}`}>Thread Knot</button>
+              <button onClick={() => setPendantType("knot")} className={`px-3 py-1 rounded ${pendantType === "knot" ? "bg-slate-900 text-white" : "bg-white border"}`}>Knot</button>
               <button onClick={() => setPendantType("heart")} className={`px-3 py-1 rounded ${pendantType === "heart" ? "bg-slate-900 text-white" : "bg-white border"}`}>Half Heart</button>
             </div>
 

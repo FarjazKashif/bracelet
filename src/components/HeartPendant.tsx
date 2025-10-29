@@ -14,7 +14,7 @@ export default function HeartPendant({ color = "#FF69B4" }: { color?: string }) 
             </defs>
             <path
                 d="M15 7 C15 7 13 3 8 3 C3 3 1 8 1 11 C1 14 3 20 15 27 L15 7"
-                fill={color}
+                fill="#C0C0C0"
                 stroke="#333"
                 strokeWidth="0.5"
                 filter="url(#pendant-shadow)"
