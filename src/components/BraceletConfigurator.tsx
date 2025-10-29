@@ -3,13 +3,22 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import HeartPendant from "./HeartPendant";
+import { Button } from "./ui/button";
 
 type Shape = "round" | "square" | "diamond";
 interface Bead { id: number; color: string; shape: Shape; }
 
 const defaultPalette = [
-  "#FFD700", "#E6E8FA", "#C0C0C0", "#B76E79",
-  "#4F69C6", "#50C878", "#FF69B4", "#000000",
+  "#FFB6C1", // Soft Pink – romantic & elegant
+  "#B19CD9", // Lilac Purple – dreamy, luxury vibe
+  "#AEEEEE", // Aqua Blue – freshness & calm energy
+  "#FFD700", // Gold – royalty & sparkle
+  "#FF6F61", // Coral Red – charm & confidence
+  "#E0BBE4", // Light Lavender – soft and trendy
+  "#98FB98", // Mint Green – soothing & lively
+  "#F5DEB3", // Warm Beige – for thread/knot realism
+  "#C0C0C0", // Silver – neutral metallic tone
+  "#000000", // Jet Black – balance & contrast
 ];
 
 export default function BraceletConfigurator({ initial = 28 }: { initial?: number }) {
@@ -30,7 +39,7 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
 
   // thread options
   const [threadColor, setThreadColor] = useState<string>("#000000");
-  const [threadThickness, setThreadThickness] = useState<number>(2);
+  const [threadThickness, setThreadThickness] = useState<number>(0.5);
   const [threadType, setThreadType] = useState<"solid" | "dashed" | "braided">("solid");
 
   // bead options
@@ -180,7 +189,7 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
 
   // ---------- render ----------
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-indigo-50 via-white to-pink-50 px-6 py-12">
+    <div className="min-h-screen flex flex-col items-center justify-center px-6 py-12">
       <div className="text-center mb-8 w-full max-w-2xl">
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Design Your Bracelet</h1>
         <p className="text-slate-500">Customize your perfect bracelet with an improved designer</p>
@@ -391,15 +400,15 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
                 className="h-8 w-8 rounded-full border bg-white"
                 onClick={() => selectedIndex !== null && updateBead(selectedIndex, { color: "#ffffff" })}
               />
-              <input
+              {/* <input
                 aria-label="Custom color"
                 type="color"
                 className="h-8 w-8 p-0 border rounded-full"
                 onChange={(e) => selectedIndex !== null && updateBead(selectedIndex, { color: e.target.value })}
                 style={{ padding: 0 }}
                 value={selectedIndex !== null ? beads[selectedIndex]?.color ?? "#ffffff" : "#ffffff"}
-              />
-              <button onClick={applySelectedToAll} className="ml-3 px-3 py-1 rounded bg-white border">Apply to all</button>
+              /> */}
+              <Button onClick={applySelectedToAll} className="ml-3 px-3 py-1 rounded font-medium">Apply to all</Button>
             </div>
           </div>
 
@@ -420,39 +429,6 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
             </div>
           </div>
 
-          {/* Bead size (global) */}
-          <div>
-            <label className="text-sm font-medium text-slate-700 block mb-2">Bead size</label>
-            <input
-              type="range"
-              min={0.7}
-              max={1.4}
-              step={0.02}
-              value={beadScale}
-              onChange={(e) => setBeadScale(Number(e.target.value))}
-              className="w-full"
-            />
-            <div className="text-xs text-slate-500 mt-1">Scale: {Math.round(beadScale * 100)}%</div>
-          </div>
-
-          {/* Thread options */}
-          <div>
-            <label className="text-sm font-medium text-slate-700 block mb-2">Thread</label>
-            <div className="flex gap-2 items-center mb-2">
-              <input type="color" value={threadColor} onChange={(e) => setThreadColor(e.target.value)} className="h-8 w-8 p-0 rounded-full border" />
-              <div className="flex items-center gap-2">
-                <label className="text-xs">Thickness</label>
-                <input type="range" min={1} max={6} value={threadThickness} onChange={(e) => setThreadThickness(Number(e.target.value))} className="mx-2" />
-                <div className="text-xs text-slate-500">{threadThickness}px</div>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <button onClick={() => setThreadType("solid")} className={`px-3 py-1 rounded ${threadType === "solid" ? "bg-slate-900 text-white" : "bg-white border"}`}>Solid</button>
-              <button onClick={() => setThreadType("dashed")} className={`px-3 py-1 rounded ${threadType === "dashed" ? "bg-slate-900 text-white" : "bg-white border"}`}>Dashed</button>
-              <button onClick={() => setThreadType("braided")} className={`px-3 py-1 rounded ${threadType === "braided" ? "bg-slate-900 text-white" : "bg-white border"}`}>Braided</button>
-            </div>
-          </div>
-
           {/* Pendant controls */}
           <div>
             <label className="text-sm font-medium text-slate-700 block mb-2">Pendant</label>
@@ -469,7 +445,7 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
               </div>
             )}
 
-            <div className="flex items-center gap-2">
+            {/* <div className="flex items-center gap-2">
               <label className="text-xs">Size</label>
               <input type="range" min={16} max={56} value={pendantSize} onChange={(e) => setPendantSize(Number(e.target.value))} className="mx-2" />
               <label className="text-xs">Placement</label>
@@ -480,14 +456,14 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
               </select>
               <label className="text-xs ml-2">Offset</label>
               <input type="range" min={0} max={8} value={pendantOffset} onChange={(e) => setPendantOffset(Number(e.target.value))} className="mx-2" />
-            </div>
+            </div> */}
           </div>
 
           {/* Symmetry toggle and duplicate */}
           <div className="flex items-center gap-3">
-            <label className="text-sm">Symmetry</label>
+            <label className="text-sm">Symmetry: </label>
             <input type="checkbox" checked={symmetryEnabled} onChange={(e) => setSymmetryEnabled(e.target.checked)} />
-            <button onClick={applySelectedToAll} className="ml-4 px-3 py-1 rounded bg-white border">Apply selected to all</button>
+            {/* <button onClick={applySelectedToAll} className="ml-4 px-3 py-1 rounded bg-white border">Apply selected to all</button> */}
           </div>
 
           {/* Bead count */}

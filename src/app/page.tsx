@@ -7,7 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 
 export default function Home() {
   return (
-    <div className='bg-white'>
+    <div className='grainy-dark'>
       <section className='bg-white py-10'>
         <MaxWidthWrapper className='flex flex-col items-center gap-8 sm:gap-12'>
           <div className='gap-4 sm:gap-6'>
