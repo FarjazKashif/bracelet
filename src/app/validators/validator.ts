@@ -1,9 +1,15 @@
-import { label } from "framer-motion/client";
-
-export const PENDANT_TYPES = {
-    name: "pendant types",
-    options: {
+export const PENDANT_TYPES = [
+    {
+        name: "pendant types",
         label: "Pendant Types",
-        values: ["knot", "heart"],
-    }
-};
+        options: [
+            {
+                label: "Knot",
+                value: "knot"
+            },
+            {
+                label: "Heart",
+                value: "heart"
+            }
+        ]
+    }] as const
