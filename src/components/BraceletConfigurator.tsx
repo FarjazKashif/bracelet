@@ -8,6 +8,7 @@ import { Radio, RadioGroup } from '@headlessui/react'
 import { PENDANT_TYPES } from "@/app/validators/validator";
 import { Label } from "./ui/label";
 import { cn } from "@/lib/utils";
+import { option } from "framer-motion/client";
 
 type Shape = "round" | "square" | "diamond";
 interface Bead { id: number; color: string; shape: Shape; }
@@ -447,35 +448,38 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
 
           {/* Pendant controls */}
           {/* <div> */}
-            {PENDANT_TYPES.map(({ name, options: selectableOptions }) => (
-              <RadioGroup
-                key={name}
-                value={options.pendant.name}
-                onChange={(value) => {
-                  setOptions((prev) => ({
-                    ...prev,
-                    [name]: value
-                  })
-              )}}
-              >
-                <Label className="text-zinc-700">{name.slice(0, 1).toUpperCase() + name.slice(1)}</Label>
-                <div className='mt-3 space-y-4'>
-                  {selectableOptions.map((option) => (
-                    <Radio
-                      value={option}
-                      key={option.value}
-                      className={({ focus, checked }) =>
-                        cn(
-                          'relative block cursor-pointer rounded-lg bg-white px-6 py-4 shadow-sm border-2 border-zinc-100 focus:outline-none ring-0 focus:ring-0 outline-none sm:flex sm:justify-between',
-                          {
-                            'border-primary': focus || checked,
-                          }
-                        )
-                      }
-                    >
-                      <span className='flex items-center'>
-                        <span className='flex flex-col text-sm'>
-                          {option.label == "Knot" ? 
+          {PENDANT_TYPES.map(({ name, options: selectableOptions }) => (
+            <RadioGroup
+              key={name}
+              value={options[name]}
+              onChange={(selectedValue: "knot" | "heart") => {
+                setOptions((prev) => ({
+                  ...prev,
+                  [name]: selectedValue,
+                }))
+                setPendantType(selectedValue)
+              }}
+            >
+
+
+              <Label className="text-zinc-700">{name.slice(0, 1).toUpperCase() + name.slice(1)}</Label>
+              <div className='mt-3 space-y-4'>
+                {selectableOptions.map((option) => (
+                  <Radio
+                    value={option}
+                    key={option.value}
+                    className={({ focus, checked }) =>
+                      cn(
+                        'relative block cursor-pointer rounded-lg bg-white px-6 py-4 shadow-sm border-2 border-zinc-100 focus:outline-none ring-0 focus:ring-0 outline-none sm:flex sm:justify-between',
+                        {
+                          'border-primary': focus || checked,
+                        }
+                      )
+                    }
+                  >
+                    <span className='flex items-center'>
+                      <span className='flex flex-col text-sm'>
+                        {option.label == "Knot" ?
                           <Radio value={option.label} className='font-medium text-gray-900'
                             as='span' onChange={() => setPendantType("knot")}>
                             {option.label}
@@ -485,7 +489,7 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
                             {option.label}
                           </Radio>}
 
-                          {/* {option.description ? (
+                        {/* {option.description ? (
                             <Radio value={option.description} as='span'
                               className='text-gray-500'>
                               <span className='block sm:inline'>
@@ -493,36 +497,36 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
                               </span>
                             </Radio>
                           ) : null} */}
-                        </span>
                       </span>
+                    </span>
 
-                      {/* <Radio as='span' value={option.price}
+                    {/* <Radio as='span' value={option.price}
                         className='mt-2 flex text-sm sm:ml-4 sm:mt-0 sm:flex-col sm:text-right'>
                         <span className='font-medium text-gray-900'>
                           {formatPrice(option.price / 100)}
                         </span>
                       </Radio> */}
-                    </Radio>
-                  ))}
-                </div>
+                  </Radio>
+                ))}
+              </div>
 
-              </RadioGroup>
-            ))}
-            {/* <label className="text-sm font-medium text-slate-700 block mb-2">Pendant Type:</label>
+            </RadioGroup>
+          ))}
+          {/* <label className="text-sm font-medium text-slate-700 block mb-2">Pendant Type:</label>
             <div className="flex gap-2 items-center mb-2">
               <button onClick={() => setPendantType("knot")} className={`px-3 py-1 rounded ${pendantType === "knot" ? "bg-slate-900 text-white" : "bg-white border"}`}>Knot</button>
               <button onClick={() => setPendantType("heart")} className={`px-3 py-1 rounded ${pendantType === "heart" ? "bg-slate-900 text-white" : "bg-white border"}`}>Half Heart</button>
             </div> */}
 
-            {pendantType === "heart" && (
-              <div className="flex items-center gap-2 mb-2">
-                {palette.map(c => (
-                  <button key={c} onClick={() => setPendantColor(c)} className={`h-7 w-7 rounded-full border ${pendantColor === c ? "ring-2 ring-indigo-400" : ""}`} style={{ background: c }} />
-                ))}
-              </div>
-            )}
+          {pendantType === "heart" && (
+            <div className="flex items-center gap-2 mb-2">
+              {palette.map(c => (
+                <button key={c} onClick={() => setPendantColor(c)} className={`h-7 w-7 rounded-full border ${pendantColor === c ? "ring-2 ring-indigo-400" : ""}`} style={{ background: c }} />
+              ))}
+            </div>
+          )}
 
-            {/* <div className="flex items-center gap-2">
+          {/* <div className="flex items-center gap-2">
               <label className="text-xs">Size</label>
               <input type="range" min={16} max={56} value={pendantSize} onChange={(e) => setPendantSize(Number(e.target.value))} className="mx-2" />
               <label className="text-xs">Placement</label>

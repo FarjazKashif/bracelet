@@ -1,6 +1,6 @@
 export const PENDANT_TYPES = [
     {
-        name: "pendant types",
+        name: "pendant",
         label: "Pendant Types",
         options: [
             {
