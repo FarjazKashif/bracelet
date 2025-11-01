@@ -9,6 +9,7 @@ import { PENDANT_TYPES } from "@/app/validators/validator";
 import { Label } from "./ui/label";
 import { cn } from "@/lib/utils";
 import { option } from "framer-motion/client";
+import { useRouter } from "next/navigation";
 
 type Shape = "round" | "square" | "diamond";
 interface Bead { id: number; color: string; shape: Shape; }
@@ -53,10 +54,15 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
   const [symmetryEnabled, setSymmetryEnabled] = useState<boolean>(false);
 
   const [options, setOptions] = useState<{
-    pendant: (typeof PENDANT_TYPES)[number];
+    pendant: "knot" | "heart";
   }>({
-    pendant: PENDANT_TYPES[0]
+    pendant: "knot"
   })
+
+  // Bracelet Type (Band Type)
+  const [braceletType, setBraceletType] = useState<{
+    type: "rubber" | "heart"
+  }>({ type: "rubber" });
 
   // undo/redo history (simple)
   const historyRef = useRef<Bead[][]>([]);
@@ -68,6 +74,7 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
     redoRef.current = []; // clear redo on new action
   };
 
+  const router = useRouter()
   // mounted flag
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
@@ -213,9 +220,9 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-slate-900">Live Bracelet</h3>
               <div className="flex items-center gap-2">
-                <button onClick={() => { undo(); }} className="px-3 py-1 rounded bg-white border">Undo</button>
-                <button onClick={() => { redo(); }} className="px-3 py-1 rounded bg-white border">Redo</button>
-                <button onClick={downloadSVG} className="px-3 py-1 rounded bg-indigo-600 text-white">Download SVG</button>
+                <button onClick={() => { undo(); }} className="px-3 py-1 rounded bg-white border cursor-pointer">Undo</button>
+                <button onClick={() => { redo(); }} className="px-3 py-1 rounded bg-white border cursor-pointer">Redo</button>
+                <button onClick={downloadSVG} className="px-3 py-1 rounded bg-indigo-600 text-white cursor-pointer">Download SVG</button>
               </div>
             </div>
 
@@ -236,10 +243,10 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
                 </defs>
 
                 {/* Thread / string */}
-                {/* {(() => {
+                {(() => {
                   let dash = "";
-                  if (threadType === "dashed") dash = "8 6";
-                  if (threadType === "braided") dash = "2 4 2 6"; // approximated look
+                  if (threadType === "rubber") dash = "8 6";
+                  if (threadType === "thread") dash = "2 4 2 6"; // approximated look
                   return (
                     <path
                       d={`M ${cx},${cy} m -${radius},0 a ${radius},${radius} 0 1,0 ${radius * 2},0 a ${radius},${radius} 0 1,0 -${radius * 2},0`}
@@ -247,11 +254,11 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
                       stroke={threadColor}
                       strokeWidth={threadThickness}
                       strokeDasharray={dash || undefined}
-                      strokeLinecap={threadType === "braided" ? "round" : "butt"}
+                      strokeLinecap={threadType === "thread" ? "round" : "butt"}
                       opacity={0.9}
                     />
                   );
-                })()} */}
+                })()}
 
                 {/* Beads */}
                 {positions.map((p, i) => {
@@ -364,7 +371,8 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
                   // Thread knot pendant (if pendantType === "knot") — small drop knot below ring
                   return (
                     <g
-                      transform={`translate(${cx}, ${cy - radius - 10})`}
+                      // transform={`translate(${cx}, ${cy - radius - 10})`}
+                      transform={`translate(${px - pendantSize / 2} ${py - pendantSize / 2})`}
                       fill="none"
                       stroke="#000"
                       strokeWidth={3}
@@ -446,8 +454,39 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
             </div>
           </div>
 
-          {/* Pendant controls */}
-          {/* <div> */}
+          {/* Bracelet Type (Rubber or THread) */}
+          <RadioGroup key={"braceletType"}
+            onChange={(selectedValue) => {
+              setBraceletType(() => ({ type: selectedValue as "rubber" | "heart" }));
+              // setPendantType(selectedValue);
+            }}
+          >
+            <Label className="text-zinc-700">Band Material:</Label>
+            <div className="mt-3 space-y-4">
+              {["Rubber", "Thread"].map((option) => (
+                <Radio
+                  key={option}
+                  value={option}
+                  className={({ focus, checked }) =>
+                    cn(
+                      "relative block cursor-pointer border-primary rounded-lg bg-white px-6 py-4 shadow-sm border-2 border-zinc-100 sm:flex sm:justify-between",
+                      {
+                        "border-primary": focus || checked,
+                      }
+                    )
+                  }
+                >
+                  <span className="flex items-center">
+                    <span className="flex flex-col text-sm font-medium text-gray-900">
+                      {option}
+                    </span>
+                  </span>
+                </Radio>
+              ))}
+            </div>
+          </RadioGroup>
+
+          {/* Pendant Type (Heart or Knot) */}
           {PENDANT_TYPES.map(({ name, options: selectableOptions }) => (
             <RadioGroup
               key={name}
@@ -456,75 +495,50 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
                 setOptions((prev) => ({
                   ...prev,
                   [name]: selectedValue,
-                }))
-                setPendantType(selectedValue)
+                }));
+                setPendantType(selectedValue);
               }}
             >
-
-
-              <Label className="text-zinc-700">{name.slice(0, 1).toUpperCase() + name.slice(1)}</Label>
-              <div className='mt-3 space-y-4'>
+              <Label className="text-zinc-700">{name.slice(0, 1).toUpperCase() + name.slice(1)}:</Label>
+              <div className="mt-3 space-y-4">
                 {selectableOptions.map((option) => (
                   <Radio
-                    value={option}
                     key={option.value}
+                    value={option.value}
                     className={({ focus, checked }) =>
                       cn(
-                        'relative block cursor-pointer rounded-lg bg-white px-6 py-4 shadow-sm border-2 border-zinc-100 focus:outline-none ring-0 focus:ring-0 outline-none sm:flex sm:justify-between',
+                        "relative block cursor-pointer border-primary rounded-lg bg-white px-6 py-4 shadow-sm border-2 border-zinc-100 focus:outline-none ring-0 sm:flex sm:justify-between",
                         {
-                          'border-primary': focus || checked,
+                          "border-primary": focus || checked,
                         }
                       )
                     }
                   >
-                    <span className='flex items-center'>
-                      <span className='flex flex-col text-sm'>
-                        {option.label == "Knot" ?
-                          <Radio value={option.label} className='font-medium text-gray-900'
-                            as='span' onChange={() => setPendantType("knot")}>
-                            {option.label}
-                          </Radio>
-                          : <Radio value={option.label} className='font-medium text-gray-900'
-                            as='span' onChange={() => setPendantType("heart")}>
-                            {option.label}
-                          </Radio>}
-
-                        {/* {option.description ? (
-                            <Radio value={option.description} as='span'
-                              className='text-gray-500'>
-                              <span className='block sm:inline'>
-                                {option.description}
-                              </span>
-                            </Radio>
-                          ) : null} */}
+                    <span className="flex items-center">
+                      <span className="flex flex-col text-sm font-medium text-gray-900">
+                        {option.label}
                       </span>
                     </span>
-
-                    {/* <Radio as='span' value={option.price}
-                        className='mt-2 flex text-sm sm:ml-4 sm:mt-0 sm:flex-col sm:text-right'>
-                        <span className='font-medium text-gray-900'>
-                          {formatPrice(option.price / 100)}
-                        </span>
-                      </Radio> */}
                   </Radio>
                 ))}
               </div>
-
             </RadioGroup>
           ))}
+
+
           {/* <label className="text-sm font-medium text-slate-700 block mb-2">Pendant Type:</label>
             <div className="flex gap-2 items-center mb-2">
               <button onClick={() => setPendantType("knot")} className={`px-3 py-1 rounded ${pendantType === "knot" ? "bg-slate-900 text-white" : "bg-white border"}`}>Knot</button>
               <button onClick={() => setPendantType("heart")} className={`px-3 py-1 rounded ${pendantType === "heart" ? "bg-slate-900 text-white" : "bg-white border"}`}>Half Heart</button>
             </div> */}
 
-          {pendantType === "heart" && (
+          {/* {pendantType === "heart" && (
             <div className="flex items-center gap-2 mb-2">
               {palette.map(c => (
                 <button key={c} onClick={() => setPendantColor(c)} className={`h-7 w-7 rounded-full border ${pendantColor === c ? "ring-2 ring-indigo-400" : ""}`} style={{ background: c }} />
               ))}
             </div>
-          )}
+          )} */}
 
           {/* <div className="flex items-center gap-2">
               <label className="text-xs">Size</label>
@@ -548,7 +562,7 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
           </div>
 
           {/* Bead count */}
-          <div className="space-y-2">
+          {/* <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Bead count</label>
             <input type="range" min={3} max={80} value={count} onChange={(e) => setCount(Number(e.target.value))} className="w-full" />
             <div className="flex items-center gap-2">
@@ -556,9 +570,14 @@ export default function BraceletConfigurator({ initial = 28 }: { initial?: numbe
               <div className="px-3 py-1 rounded-md bg-slate-50 font-medium">{count}</div>
               <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => setCount(c => Math.min(80, c + 1))} className="px-3 py-1 rounded-md bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg">+</motion.button>
             </div>
-          </div>
+          </div> */}
 
           <p className="text-sm text-slate-500 pt-4 border-t">Click any bead to select and customize it. Use Undo/Redo and Download SVG to export your design.</p>
+          <Button 
+          onClick={() => {
+            router.push('/configure/preview')
+          }}
+          >See the Magic</Button>
         </motion.div>
       </div>
     </div>

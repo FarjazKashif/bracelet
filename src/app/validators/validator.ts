@@ -12,4 +12,5 @@ export const PENDANT_TYPES = [
                 value: "heart"
             }
         ]
-    }] as const
+    }
+] as const
