@@ -14,6 +14,35 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Shape {
+  Round
+  Square
+  Diamond
+}
+
+enum Color {
+  LIGHT_PINK    @map("FFB6C1")
+  LIGHT_PURPLE  @map("B19CD9")
+  LIGHT_BLUE    @map("AEEEEE")
+  GOLD          @map("FFD700")
+  CORAL         @map("FF6F61")
+  LAVENDER      @map("E0BBE4")
+  MINT_GREEN    @map("98FB98")
+  WHEAT         @map("F5DEB3")
+  SILVER        @map("C0C0C0")
+  BLACK         @map("000000")
+}
+
+enum Material {
+  Rubber
+  Thread
+}
+
+enum Pendant {
+  Knot
+  Heart
+}
+
 model Configuration {
   id    Int     @id @default(autoincrement())
   shape String

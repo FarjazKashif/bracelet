@@ -8,7 +8,42 @@
 * 🟢 You can import this file directly.
 */
 
+export const Shape = {
+  Round: 'Round',
+  Square: 'Square',
+  Diamond: 'Diamond'
+} as const
+
+export type Shape = (typeof Shape)[keyof typeof Shape]
 
 
-// This file is empty because there are no enums in the schema.
-export {}
+export const Color = {
+  LIGHT_PINK: 'LIGHT_PINK',
+  LIGHT_PURPLE: 'LIGHT_PURPLE',
+  LIGHT_BLUE: 'LIGHT_BLUE',
+  GOLD: 'GOLD',
+  CORAL: 'CORAL',
+  LAVENDER: 'LAVENDER',
+  MINT_GREEN: 'MINT_GREEN',
+  WHEAT: 'WHEAT',
+  SILVER: 'SILVER',
+  BLACK: 'BLACK'
+} as const
+
+export type Color = (typeof Color)[keyof typeof Color]
+
+
+export const Material = {
+  Rubber: 'Rubber',
+  Thread: 'Thread'
+} as const
+
+export type Material = (typeof Material)[keyof typeof Material]
+
+
+export const Pendant = {
+  Knot: 'Knot',
+  Heart: 'Heart'
+} as const
+
+export type Pendant = (typeof Pendant)[keyof typeof Pendant]
