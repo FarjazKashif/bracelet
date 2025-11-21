@@ -4,14 +4,16 @@
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
+// After changes
+// npx prisma migrate dev --name init
+
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated"
+  provider = "prisma-client-js"
+  // output   = "../src/generated"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum Shape {
@@ -21,16 +23,16 @@ enum Shape {
 }
 
 enum Color {
-  LIGHT_PINK    @map("FFB6C1")
-  LIGHT_PURPLE  @map("B19CD9")
-  LIGHT_BLUE    @map("AEEEEE")
-  GOLD          @map("FFD700")
-  CORAL         @map("FF6F61")
-  LAVENDER      @map("E0BBE4")
-  MINT_GREEN    @map("98FB98")
-  WHEAT         @map("F5DEB3")
-  SILVER        @map("C0C0C0")
-  BLACK         @map("000000")
+  LIGHT_PINK   @map("FFB6C1")
+  LIGHT_PURPLE @map("B19CD9")
+  LIGHT_BLUE   @map("AEEEEE")
+  GOLD         @map("FFD700")
+  CORAL        @map("FF6F61")
+  LAVENDER     @map("E0BBE4")
+  MINT_GREEN   @map("98FB98")
+  WHEAT        @map("F5DEB3")
+  SILVER       @map("C0C0C0")
+  BLACK        @map("000000")
 }
 
 enum Material {
@@ -44,9 +46,14 @@ enum Pendant {
 }
 
 model Configuration {
-  id    Int     @id @default(autoincrement())
-  shape String
-  color String
-  material String
-  pendant String
+  id                String   @id @default(cuid())
+  userId            String?
+  bracelet1ImageUrl String
+  bracelet2ImageUrl String
+  bracelet1Config   Json
+  bracelet2Config   Json
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("bracelets")
 }
