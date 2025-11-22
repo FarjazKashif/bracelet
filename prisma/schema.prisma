@@ -46,6 +46,7 @@ model Configuration {
   userId            String?
   bracelet1ImageUrl String
   bracelet2ImageUrl String
+  aiGeneratedImageUrl String?
   bracelet1Config   Json
   bracelet2Config   Json
   createdAt         DateTime @default(now())

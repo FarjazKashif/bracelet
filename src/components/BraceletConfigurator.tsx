@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { v4 as uuidv4 } from "uuid";
+import { toast } from "sonner";
 
 
 type Shape = "round" | "square" | "diamond";
@@ -39,6 +40,8 @@ export default function DualBraceletConfigurator({ initial = 28 }: { initial?: n
   const [uploading, setUploading] = useState(false);
   const [savedDesign, setSavedDesign] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiImageUrl, setAiImageUrl] = useState<string | null>(null);
 
   // Refs for SVG elements
   const svgRef1 = useRef<SVGSVGElement>(null);
@@ -140,6 +143,58 @@ export default function DualBraceletConfigurator({ initial = 28 }: { initial?: n
       img.onerror = () => reject(new Error('Failed to load SVG'));
       img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
     });
+  }
+
+  // Generate AI image
+  async function generateAIImage() {
+    if (!savedDesign) {
+      toast.error("Please save your design first!");
+      return;
+    }
+
+    setAiGenerating(true);
+    setError(null);
+    const toastId = toast.loading("Creating AI magic...");
+
+    try {
+      console.log('Starting AI generation with:', {
+        bracelet1Url: savedDesign.bracelet1ImageUrl,
+        bracelet2Url: savedDesign.bracelet2ImageUrl,
+        configurationId: savedDesign.id
+      });
+
+      const response = await fetch('/api/huggingFace', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          bracelet1Url: savedDesign.bracelet1ImageUrl,
+          bracelet2Url: savedDesign.bracelet2ImageUrl,
+          configurationId: savedDesign.id
+        })
+      });
+
+      const result = await response.json();
+      console.log('AI generation result:', result);
+
+      if (!result.success) {
+        throw new Error(result.error || result.details || 'AI generation failed');
+      }
+
+      setAiImageUrl(result.aiImageUrl);
+      toast.success("AI photo generated! ✨", { 
+        id: toastId,
+        style: {
+          fontFamily: 'Recursive, sans-serif',
+        }
+      });
+
+    } catch (error: any) {
+      console.error('AI generation error:', error);
+      setError(error.message || "Failed to generate AI image");
+      toast.error(error.message || "Failed to generate AI image", { id: toastId });
+    } finally {
+      setAiGenerating(false);
+    }
   }
 
   // Save design to database via API
@@ -420,6 +475,37 @@ export default function DualBraceletConfigurator({ initial = 28 }: { initial?: n
         </div>
       )}
 
+      {/* AI Generated Image Display */}
+      {aiImageUrl && (
+        <div className="mb-4 p-6 bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200 rounded-xl max-w-6xl w-full">
+          <h3 className="text-xl font-bold text-slate-900 mb-3 flex items-center gap-2">
+            <span>🪄</span> AI Generated Photo
+          </h3>
+          <img 
+            src={aiImageUrl} 
+            alt="AI Generated Bracelets" 
+            className="w-full rounded-lg shadow-xl mb-3"
+          />
+          <div className="flex gap-3">
+            <a
+              href={aiImageUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+            >
+              Open Full Size →
+            </a>
+            <a
+              href={aiImageUrl}
+              download="ai-bracelet-design.png"
+              className="px-4 py-2 bg-white text-purple-600 border-2 border-purple-600 rounded-lg hover:bg-purple-50 transition"
+            >
+              Download ⬇️
+            </a>
+          </div>
+        </div>
+      )}
+
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         {/* Preview */}
         <motion.div className="relative" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
@@ -627,17 +713,44 @@ export default function DualBraceletConfigurator({ initial = 28 }: { initial?: n
             onClick={handleSaveDesign}
           >
             {uploading ? (
-              <span className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Uploading to Cloudinary...
+              <span className="flex items-center justify-center gap-2">
+                Saving your design
+                <span className="flex gap-1">
+                  <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                  <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                  <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                </span>
               </span>
             ) : (
               'See the Magic ✨'
             )}
           </button>
+
+          {/* AI Generation Button */}
+          {savedDesign && (
+            <button
+              onClick={generateAIImage}
+              disabled={aiGenerating}
+              className={`w-full px-4 py-3 rounded-lg font-medium shadow-lg transition-all mt-3 ${
+                aiGenerating
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:shadow-xl'
+              }`}
+            >
+              {aiGenerating ? (
+                <span className="flex items-center justify-center gap-2">
+                  Generating AI photo
+                  <span className="flex gap-1">
+                    <span className="w-2 h-2 bg-white rounded-full animate-bounce"></span>
+                    <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                    <span className="w-2 h-2 bg-white rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                  </span>
+                </span>
+              ) : (
+                '🪄 Generate AI Photo'
+              )}
+            </button>
+          )}
         </motion.div>
       </div>
     </div>

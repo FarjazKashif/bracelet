@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Recursive, Roboto } from 'next/font/google'
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import { Toaster } from "@/components/ui/sonner";
 
 const recursive = Recursive({ subsets: ['latin'], weight: ["300", "400", "500",] })
 
@@ -21,6 +22,7 @@ export default function RootLayout({
         className={cn(recursive.className, "grainy-light")}
       >
         {children}
+        <Toaster />
       </body>
     </html>
   );
