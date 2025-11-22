@@ -1,8 +1,8 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/db/index';
-import { uploadBase64Image } from '@/lib/uploadUtils';
+import { NextResponse } from 'next/server'
+import { db } from '@/db/index'
+import { uploadBase64Image } from '@/lib/uploadUtils'
 
-export async function POST(request) {
+export async function POST(request: any) {
   try {
     const formData = await request.formData();
     
@@ -38,20 +38,20 @@ export async function POST(request) {
       message: 'Bracelet design saved successfully!'
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in POST /api/bracelets:', error);
     return NextResponse.json(
       { 
         success: false, 
         error: 'Failed to save bracelet design',
-        details: error.message 
+        details: error.message
       },
       { status: 500 }
     );
   }
 }
 
-export async function GET(request) {
+export async function GET(request: any) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
@@ -83,7 +83,7 @@ export async function GET(request) {
       data: bracelets
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in GET /api/bracelets:', error);
     return NextResponse.json(
       { 
@@ -97,7 +97,7 @@ export async function GET(request) {
 }
 
 // Helper function to convert blob to base64
-async function blobToBase64(blob) {
+async function blobToBase64(blob: any) {
   const arrayBuffer = await blob.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
   return `data:${blob.type};base64,${buffer.toString('base64')}`;

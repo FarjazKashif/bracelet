@@ -36,6 +36,13 @@ const configId = generateBraceletId();
 export default function DualBraceletConfigurator({ initial = 28 }: { initial?: number }) {
   const [activeTab, setActiveTab] = useState<"first" | "second">("first");
   const [showBoth, setShowBoth] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [savedDesign, setSavedDesign] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Refs for SVG elements
+  const svgRef1 = useRef<SVGSVGElement>(null);
+  const svgRef2 = useRef<SVGSVGElement>(null);
 
   // State for first bracelet
   const [bracelet1, setBracelet1] = useState<BraceletState>({
@@ -104,6 +111,98 @@ export default function DualBraceletConfigurator({ initial = 28 }: { initial?: n
     }));
   }
 
+  // Convert SVG to Blob
+  async function svgToBlob(svgElement: SVGSVGElement): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const svgData = new XMLSerializer().serializeToString(svgElement);
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+
+      // Set canvas size
+      canvas.width = 520;
+      canvas.height = 520;
+
+      img.onload = () => {
+        if (ctx) {
+          // Fill white background
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0);
+          
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Failed to convert canvas to blob'));
+          }, 'image/png');
+        }
+      };
+
+      img.onerror = () => reject(new Error('Failed to load SVG'));
+      img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+    });
+  }
+
+  // Save design to database via API
+  async function handleSaveDesign() {
+    setUploading(true);
+    setError(null);
+
+    try {
+      console.log('Starting save process...');
+      
+      if (!svgRef1.current || !svgRef2.current) {
+        throw new Error('SVG elements not found');
+      }
+
+      console.log('Converting SVG 1 to blob...');
+      const blob1 = await svgToBlob(svgRef1.current);
+      console.log('Blob 1 created:', blob1.size, 'bytes');
+      
+      console.log('Converting SVG 2 to blob...');
+      const blob2 = await svgToBlob(svgRef2.current);
+      console.log('Blob 2 created:', blob2.size, 'bytes');
+
+      // Create form data
+      const formData = new FormData();
+      formData.append('bracelet1', blob1, 'bracelet1.png');
+      formData.append('bracelet2', blob2, 'bracelet2.png');
+      formData.append('bracelet1_config', JSON.stringify(bracelet1));
+      formData.append('bracelet2_config', JSON.stringify(bracelet2));
+
+      // Optional: Add user ID if you have authentication
+      // formData.append('userId', 'user_123');
+
+      console.log('Sending request to /api/bracelets...');
+      
+      // Call API
+      const response = await fetch('/api/bracelets', {
+        method: 'POST',
+        body: formData
+      });
+
+      console.log('Response status:', response.status);
+      
+      const result = await response.json();
+      console.log('Response data:', result);
+
+      if (!result.success) {
+        throw new Error(result.error || result.details || 'Upload failed');
+      }
+
+      setSavedDesign(result.data);
+      console.log('Saved design:', result.data);
+      alert('Design saved successfully! 🎉');
+
+    } catch (err: any) {
+      console.error('Full error details:', err);
+      console.error('Error message:', err.message);
+      console.error('Error stack:', err.stack);
+      setError(err.message || 'Failed to save design. Check console for details.');
+    } finally {
+      setUploading(false);
+    }
+  }
+
   // Render bracelet SVG
   function renderBraceletSVG(state: BraceletState, size: number = 520, offsetX: number = 0) {
     const cx = size / 2 + offsetX;
@@ -164,7 +263,6 @@ export default function DualBraceletConfigurator({ initial = 28 }: { initial?: n
           const strokeColor = selected ? "#0f172a" : "#9aa0a6";
           const fillColor = bead.color || "#ffffff";
 
-          // Calculate bead diameter based on individual bead size
           const beadDiameter = bead.size === 3 ? beadDiameterBase * 0.5 : beadDiameterBase;
           const beadRadius = beadDiameter / 2;
 
@@ -216,7 +314,6 @@ export default function DualBraceletConfigurator({ initial = 28 }: { initial?: n
             );
           }
 
-          // diamond
           const pts = [
             `${p.x},${p.y - beadRadius}`,
             `${p.x + beadRadius},${p.y}`,
@@ -240,7 +337,6 @@ export default function DualBraceletConfigurator({ initial = 28 }: { initial?: n
         {/* Pendant */}
         {(() => {
           const px = cx;
-          // Use base bead size for pendant positioning
           const avgBeadRadius = beadDiameterBase / 2;
           const py = cy + radius + avgBeadRadius * 1.3;
 
@@ -279,7 +375,6 @@ export default function DualBraceletConfigurator({ initial = 28 }: { initial?: n
             );
           }
 
-          // Thread knot pendant
           return (
             <g
               transform={`translate(${px} ${py})`}
@@ -307,6 +402,23 @@ export default function DualBraceletConfigurator({ initial = 28 }: { initial?: n
         <h1 className="text-3xl font-bold text-slate-900 mb-2">Design Your Bracelet</h1>
         <p className="text-slate-500">Customize your perfect bracelet with dual design option</p>
       </div>
+
+      {/* Error/Success Messages */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg max-w-6xl w-full">
+          <p className="text-red-800 font-medium">❌ {error}</p>
+        </div>
+      )}
+
+      {savedDesign && (
+        <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg max-w-6xl w-full">
+          <p className="text-green-800 font-medium">✅ Design saved successfully!</p>
+          <div className="mt-2 text-sm text-green-600">
+            <p>Bracelet 1: <a href={savedDesign.bracelet1ImageUrl} target="_blank" rel="noopener noreferrer" className="underline">View Image</a></p>
+            <p>Bracelet 2: <a href={savedDesign.bracelet2ImageUrl} target="_blank" rel="noopener noreferrer" className="underline">View Image</a></p>
+          </div>
+        </div>
+      )}
 
       <div className="w-full max-w-6xl grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
         {/* Preview */}
@@ -345,6 +457,16 @@ export default function DualBraceletConfigurator({ initial = 28 }: { initial?: n
                 )}
               </svg>
             </div>
+
+            {/* Hidden SVGs for export */}
+            <div style={{ position: 'absolute', left: '-9999px' }}>
+              <svg ref={svgRef1} viewBox="0 0 520 520" width={520} height={520}>
+                {renderBraceletSVG(bracelet1, 520, 0)}
+              </svg>
+              <svg ref={svgRef2} viewBox="0 0 520 520" width={520} height={520}>
+                {renderBraceletSVG(bracelet2, 520, 0)}
+              </svg>
+            </div>
           </div>
         </motion.div>
 
@@ -377,7 +499,7 @@ export default function DualBraceletConfigurator({ initial = 28 }: { initial?: n
             </button>
           </div>
 
-          {/* Colors (per-bead or pendant) */}
+          {/* Colors */}
           <div>
             <label className="text-sm font-medium text-slate-700 block mb-2">Colors:</label>
             <div className="flex gap-2 items-center text-gray-100 text-2xl font-light">
@@ -496,11 +618,25 @@ export default function DualBraceletConfigurator({ initial = 28 }: { initial?: n
           <p className="text-sm text-slate-500 pt-4 border-t">Click any bead to select and customize it. Switch tabs to design the second bracelet.</p>
 
           <button
-            className="w-full px-4 py-3 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-medium shadow-lg hover:shadow-xl transition-shadow"
-            onClick={() => {
-            }}
+            disabled={uploading}
+            className={`w-full px-4 py-3 rounded-lg font-medium shadow-lg transition-all ${
+              uploading 
+                ? 'bg-gray-400 cursor-not-allowed' 
+                : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:shadow-xl'
+            }`}
+            onClick={handleSaveDesign}
           >
-            See the Magic
+            {uploading ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Uploading to Cloudinary...
+              </span>
+            ) : (
+              'See the Magic ✨'
+            )}
           </button>
         </motion.div>
       </div>
